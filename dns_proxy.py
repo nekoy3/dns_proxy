@@ -52,6 +52,10 @@ def main():
         # requestをserversに投げて帰ってきたresponsesを受け取る
         responses = handle_dns_request(request, servers) 
 
+        if responses is None:
+            print("Response is nothing")
+            continue
+
         # responsesを全てaddrに返す
         for response in responses:
             sock.sendto(response, addr)  # クライアントに応答を返す
