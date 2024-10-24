@@ -46,7 +46,7 @@ def handle_dns_request(data, server, responses):
             logging.info(f"Duplicating and sending request query to {server}") # neko1とかneko2になげる
             sock.sendto(data, (server, PORT))
             response, addr = sock.recvfrom(1410)  # 最大1410バイトの応答を受け取る
-            logging.info(f"Recieved answer query to {server}")
+            logging.info(f"Received answer query to {server}")
 
             # responseに格納
             responses.append(response)
