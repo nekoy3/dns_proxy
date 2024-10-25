@@ -43,7 +43,7 @@ def parse_dns_query(data):
 def handle_dns_request(data, server, responses):
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-            sock.settimeout(2)  # タイムアウト設定
+            sock.settimeout(1)  # タイムアウト設定
             logging.info(f"Duplicating and sending request query to {server}") # neko1とかneko2になげる
             sock.sendto(data, (server, PORT))
             response, addr = sock.recvfrom(1410)  # 最大1410バイトの応答を受け取る
@@ -77,14 +77,8 @@ def main():
         threads = [0 for _ in servers]
         for i in range(len(servers)):
             threads[i] = threading.Thread(target=handle_dns_request, args=(request, servers[i], responses), name=str(i))
-
-        # 処理開始
-        for i in range(len(threads)):
             threads[i].start()
-        
-        """
-        threadそれぞれからresponseを受け取って初回はクライアントに応答を返し、それ以降は受け取るだけで使わず放置する感じにする
-        """
+
         #0だけ待機し、他はstartして投げっぱなしにする
         threads[0].join()
         logging.info(f"Sending answer query to client({addr[0]})")
