@@ -3,6 +3,7 @@ from dnslib import DNSRecord, DNSHeader, QTYPE, CLASS # ログ出力用
 import logging # ログ出力用
 import threading # マルチスレッド処理用
 import configparser # コンフィグ
+import time # 実行時間計測用
 
 PORT = 53
 LOG_FILE = "logfile.log"
@@ -67,11 +68,11 @@ def main():
     while True:
         # 最大1410バイトのリクエストを受信(EDNS考慮)
         request, addr = sock.recvfrom(1410)  # addrは(ip, port)の形式
+        # 処理時間計測用
+        start = time.perf_counter()
+
         source_ip = addr[0]
         logging.info(f"Received request query from client({source_ip})")
-        # パースして各情報を取得
-        domain_name, record_type, record_class = parse_dns_query(request)
-        logging.info(f"{source_ip} {domain_name} {record_type} {record_class}")
         # requestをserversに投げる
         threads = [0 for _ in servers]
         for i in range(len(servers)):
@@ -92,6 +93,12 @@ def main():
                 continue
             logging.info(f"Sending answer query to client({addr[0]})")
             sock.sendto(responses[0], addr)
+        
+        end = time.perf_counter()
+        print(str(round((end-start)*1000, 3)) + "ms")
+        # パースして各情報を取得
+        domain_name, record_type, record_class = parse_dns_query(request)
+        logging.info(f"{source_ip} {domain_name} {record_type} {record_class}")
         responses = []
 
 if __name__ == "__main__":
