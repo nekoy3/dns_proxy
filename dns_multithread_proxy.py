@@ -85,13 +85,12 @@ def main():
         """
         threadそれぞれからresponseを受け取って初回はクライアントに応答を返し、それ以降は受け取るだけで使わず放置する感じにする
         """
-        #それぞれの処理完了まで待機してaddrに応答を返す
-        for i in range(len(threads)):
-            threads[i].join()
-            if responses == [] or i >= 1:
-                # logging.info("Skip sending query")
-                continue
-            logging.info(f"Sending answer query to client({addr[0]})")
+        #0だけ待機し、他はstartして投げっぱなしにする
+        threads[0].join()
+        logging.info(f"Sending answer query to client({addr[0]})")
+        if responses == []:
+            logging.info(f"Response nothing")
+        else:
             sock.sendto(responses[0], addr)
         
         end = time.perf_counter()
