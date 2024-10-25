@@ -47,20 +47,49 @@ def handle_dns_request(data, server, responses):
             logging.info(f"Duplicating and sending request query to {server}") # neko1とかneko2になげる
             sock.sendto(data, (server, PORT))
             response, addr = sock.recvfrom(1410)  # 最大1410バイトの応答を受け取る
-            """ TCPフォールバックしたら1410byteで足りんのでは？ 
-                EDNS0にサーバとクライアントが対応してたらフォールバックしないから大丈夫？"""
             logging.info(f"Received answer query to {server}")
 
             # responseに格納
             responses.append(response)
+            on_received = True
 
     except Exception as e:
         logging.info(f"Error communicating with {server}: {e}")
 
+# クエリを受け取った後の処理
+def dns_query(sock, addr, request, servers):
+    source_ip = addr[0]
+    responses = []
+    # 処理時間計測用
+    start = time.perf_counter()
+
+    logging.info(f"Received request query from client({source_ip})")
+    # requestをserversに投げる
+    handle_threads = [0 for _ in servers]
+    for i in range(len(servers)):
+        handle_threads[i] = threading.Thread(target=handle_dns_request, args=(request, servers[i], responses), name=str(i))
+        handle_threads[i].start()
+
+    #応答が買ってくるまで待機し、他はstartして投げっぱなしにする
+    handle_threads[0].join()
+    logging.info(f"Sending answer query to client({source_ip})")
+    if responses == []:
+        logging.info(f"Response nothing")
+    else:
+        sock.sendto(responses[0], addr)
+
+    # パースして各情報を取得
+    domain_name, record_type, record_class = parse_dns_query(request)
+    logging.info(f"{source_ip} {domain_name} {record_type} {record_class}")
+    responses = []
+
+    end = time.perf_counter()
+    print(str(round((end-start)*1000, 3)) + "ms")
+
 def main():
     # server.confからIPアドレスを読み込む
     servers = load_servers_from_conf('server.conf')
-    responses = []
+    query_threads = []
 
     # portのlisten
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -70,31 +99,10 @@ def main():
     while True:
         # 最大1410バイトのリクエストを受信(EDNS考慮)
         request, addr = sock.recvfrom(1410)  # addrは(ip, port)の形式
-        # 処理時間計測用
-        start = time.perf_counter()
 
         source_ip = addr[0]
-        logging.info(f"Received request query from client({source_ip})")
-        # requestをserversに投げる
-        threads = [0 for _ in servers]
-        for i in range(len(servers)):
-            threads[i] = threading.Thread(target=handle_dns_request, args=(request, servers[i], responses), name=str(i))
-            threads[i].start()
-
-        #0だけ待機し、他はstartして投げっぱなしにする どっちか一つでも応答返ってきたら返したい
-        threads[0].join()
-        logging.info(f"Sending answer query to client({addr[0]})")
-        if responses == []:
-            logging.info(f"Response nothing")
-        else:
-            sock.sendto(responses[0], addr)
-        
-        end = time.perf_counter()
-        print(str(round((end-start)*1000, 3)) + "ms")
-        # パースして各情報を取得
-        domain_name, record_type, record_class = parse_dns_query(request)
-        logging.info(f"{source_ip} {domain_name} {record_type} {record_class}")
-        responses = []
+        query_threads.append(threading.Thread(target=dns_query, args=(sock, addr, request, servers)))
+        query_threads[-1].start()
 
 if __name__ == "__main__":
     main()
