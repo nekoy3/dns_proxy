@@ -47,6 +47,8 @@ def handle_dns_request(data, server, responses):
             logging.info(f"Duplicating and sending request query to {server}") # neko1とかneko2になげる
             sock.sendto(data, (server, PORT))
             response, addr = sock.recvfrom(1410)  # 最大1410バイトの応答を受け取る
+            """ TCPフォールバックしたら1410byteで足りんのでは？ 
+                EDNS0にサーバとクライアントが対応してたらフォールバックしないから大丈夫？"""
             logging.info(f"Received answer query to {server}")
 
             # responseに格納
@@ -79,7 +81,7 @@ def main():
             threads[i] = threading.Thread(target=handle_dns_request, args=(request, servers[i], responses), name=str(i))
             threads[i].start()
 
-        #0だけ待機し、他はstartして投げっぱなしにする
+        #0だけ待機し、他はstartして投げっぱなしにする どっちか一つでも応答返ってきたら返したい
         threads[0].join()
         logging.info(f"Sending answer query to client({addr[0]})")
         if responses == []:
